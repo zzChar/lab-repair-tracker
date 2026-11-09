@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-09-2026 15:10
-last_updated: 11-09-2026 20:25
+last_updated: 11-09-2026 20:43
 project: BMAD-Codex-练习-20261108
 project_key: NOKEY
 tracking_system: file-system
@@ -40,18 +40,37 @@ development_status:
   1-2-提交公共设备报修: done
   1-3-查找我提交的工单: done
   1-4-查看单张工单及保护详情入口: done
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
 
   epic-2: done
   2-1-查看待接单和本人接下的工单: done
   2-2-接下待接单工单: done
   2-3-追加处理进度: done
   2-4-填写结果并提交验收: done
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
 
   epic-3: done
   3-1-试打成功后关闭: done
   3-2-试打失败后退回原负责人: done
   3-3-保护同一轮验收的唯一结果: done
   3-4-隔离旧请求与写入失败: done
-  epic-3-retrospective: optional
+  epic-3-retrospective: done
+action_items:
+  - id: "epic-1-retro-course-followup"
+    epic: 1
+    action: "为新报修缺少提交标识的请求补充服务端校验与回归"
+    owner: "后续实现者"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-09.md"
+  - id: "epic-2-retro-course-followup"
+    epic: 2
+    action: "补充跟进写入的同状态旧版本、缺少 CSRF 和事件失败回滚测试"
+    owner: "后续实现者"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-11-09.md"
+  - id: "epic-3-retro-course-followup"
+    epic: 3
+    action: "为工单已提交而会话提示保存失败的情形补充真实文件库回归并改进成功反馈"
+    owner: "后续实现者"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-11-09.md"
