@@ -1,0 +1,41 @@
+Creating test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+
+Found 4 test(s).
+Operations to perform:
+  Synchronize unmigrated apps: accounts, messages, staticfiles
+  Apply all migrations: auth, contenttypes, repairs, sessions
+Synchronizing apps without migrations:
+  Creating tables...
+    Running deferred SQL...
+Running migrations:
+  Applying contenttypes.0001_initial... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying auth.0001_initial... OK
+  Applying auth.0002_alter_permission_name_max_length... OK
+  Applying auth.0003_alter_user_email_max_length... OK
+  Applying auth.0004_alter_user_username_opts... OK
+  Applying auth.0005_alter_user_last_login_null... OK
+  Applying auth.0006_require_contenttypes_0002... OK
+  Applying auth.0007_alter_validators_add_error_messages... OK
+  Applying auth.0008_alter_user_username_max_length... OK
+  Applying auth.0009_alter_user_last_name_max_length... OK
+  Applying auth.0010_alter_group_name_max_length... OK
+  Applying auth.0011_update_proxy_permissions... OK
+  Applying auth.0012_alter_user_first_name_max_length... OK
+  Applying repairs.0001_initial... OK
+  Applying repairs.0002_alter_ticket_status... OK
+  Applying repairs.0003_alter_ticketevent_action... OK
+  Applying repairs.0004_ticketevent_content_alter_ticket_status_and_more... OK
+  Applying repairs.0005_ticket_submission_id_alter_ticket_description_and_more... OK
+test_bad_inputs_and_stale_version_leave_no_changes (checks.ReviewChecks.test_bad_inputs_and_stale_version_leave_no_changes) ... ok
+test_current_owner_action_and_readback (checks.ReviewChecks.test_current_owner_action_and_readback) ... ok
+test_event_failure_rolls_back_ticket (checks.ReviewChecks.test_event_failure_rolls_back_ticket) ... ok
+test_other_actors_cannot_write (checks.ReviewChecks.test_other_actors_cannot_write) ... ok
+
+  Applying sessions.0001_initial... OK
+System check identified no issues (0 silenced).
+----------------------------------------------------------------------
+Ran 4 tests in 0.150s
+
+OK
+Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...

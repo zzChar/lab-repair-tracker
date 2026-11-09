@@ -1,0 +1,273 @@
+diff --git a/lab_repair/urls.py b/lab_repair/urls.py
+index fee00ec..967cba2 100644
+--- a/lab_repair/urls.py
++++ b/lab_repair/urls.py
+@@ -14,6 +14,7 @@ urlpatterns = [
+     path('repairs/mine/', my_tickets, name='my-tickets'),
+     path('repairs/<int:ticket_id>/', ticket_detail, name='ticket-detail'),
+     path('repairs/<int:ticket_id>/claim/', claim_repair, name='claim-repair'),
++    path('repairs/<int:ticket_id>/progress/', update_ticket, {'operation': 'progress'}, name='repair-progress'),
+     path('repairs/<int:ticket_id>/close/', update_ticket, {'operation': 'close'}, name='repair-close'),
+     path('repairs/<int:ticket_id>/return/', update_ticket, {'operation': 'return'}, name='repair-return'),
+ ]
+diff --git a/repairs/services.py b/repairs/services.py
+index 91f0e9b..0b92c52 100644
+--- a/repairs/services.py
++++ b/repairs/services.py
+@@ -74,6 +74,21 @@ def claim_ticket(*, ticket_id, handler, expected_version):
+         )
+ 
+ 
++def append_progress(*, ticket_id, actor, expected_version, content):
++    with _ticket_transaction():
++        if not is_handler(actor):
++            raise PermissionDenied
++        assigned = tickets_assigned_to(actor).filter(pk=ticket_id)
++        if not assigned.exists():
++            raise PermissionDenied
++
++        _change_ticket(
++            assigned.filter(status=Ticket.Status.IN_PROGRESS), ticket_id=ticket_id,
++            expected_version=expected_version, actor=actor, action=TicketEvent.Action.PROGRESS,
++            content=content,
++        )
++
++
+ def confirm_closed(*, ticket_id, actor, expected_version):
+     _resolve_confirmation(
+         ticket_id=ticket_id, actor=actor, expected_version=expected_version,
+diff --git a/repairs/templates/repairs/ticket_detail.html b/repairs/templates/repairs/ticket_detail.html
+index 58d667f..be70ea5 100644
+--- a/repairs/templates/repairs/ticket_detail.html
++++ b/repairs/templates/repairs/ticket_detail.html
+@@ -19,6 +19,13 @@
+     <dt>最近更新时间</dt>
+     <dd><time datetime="{{ ticket.updated_at|date:'Y-m-d\TH:i:sO' }}">{{ ticket.updated_at|date:"Y-m-d H:i:s" }}</time></dd>
+   </dl>
++  {% if latest_progress %}
++    <section aria-labelledby="latest-progress-heading">
++      <h2 id="latest-progress-heading">最新进度</h2>
++      <p class="event-content">{{ latest_progress.content }}</p>
++      <p>记录时间 {% include "repairs/event_time.html" with event=latest_progress %}</p>
++    </section>
++  {% endif %}
+   {% if events %}
+     <section aria-labelledby="ticket-history-heading">
+       <h2 id="ticket-history-heading">处理历史</h2>
+@@ -41,6 +48,9 @@
+     <p><a href="{% url 'my-tickets' %}">返回我提交的工单</a></p>
+   {% endif %}
+   {% if is_handler and ticket.assignee_id == user.pk %}
++    {% if ticket.status == ticket.Status.IN_PROGRESS %}
++      {% include "repairs/ticket_action_form.html" with action_name="repair-progress" note_label="处理进度" button_text="追加处理进度" %}
++    {% endif %}
+     <p><a href="{% url 'handler-assigned' %}">返回我接下的工单</a></p>
+   {% elif is_handler and ticket.status == ticket.Status.PENDING and ticket.assignee_id is None %}
+     <form method="post" action="{% url 'claim-repair' ticket.pk %}">
+diff --git a/repairs/tests.py b/repairs/tests.py
+index a0d2d3d..a7c4c18 100644
+--- a/repairs/tests.py
++++ b/repairs/tests.py
+@@ -13,7 +13,7 @@ from django.utils.html import escape
+ from accounts.roles import HANDLER_GROUP
+ 
+ from .models import Ticket, TicketEvent
+-from .services import create_ticket
++from .services import claim_ticket, confirm_closed, create_ticket
+ 
+ 
+ class SubmitRepairTests(TestCase):
+@@ -538,3 +538,155 @@ class ClaimTicketTests(TestCase):
+             original.status, original.assignee_id, original.version, original.updated_at,
+         ))
+         self.assertEqual(current.events.count(), event_count)
++
++
++class TicketProgressTests(TestCase):
++    @classmethod
++    def setUpTestData(cls):
++        users = get_user_model().objects
++        cls.reporter = users.create_user(username='progress_reporter')
++        cls.handler = users.create_user(username='progress_handler')
++        cls.other_handler = users.create_user(username='progress_other_handler')
++        cls.handlers = Group.objects.create(name=HANDLER_GROUP)
++        cls.handlers.user_set.add(cls.handler, cls.other_handler)
++        cls.ticket = create_ticket(
++            reporter=cls.reporter, device_name='公共打印机', location='公共区', description='卡纸',
++        )
++        claim_ticket(ticket_id=cls.ticket.pk, handler=cls.handler, expected_version=cls.ticket.version)
++        cls.ticket.refresh_from_db()
++
++    def setUp(self):
++        self.url = reverse('repair-progress', args=[self.ticket.pk])
++        self.detail_url = reverse('ticket-detail', args=[self.ticket.pk])
++        self.client.force_login(self.handler)
++
++    def test_current_handler_appends_two_events_and_reporter_sees_history_and_latest(self):
++        browser = Client(enforce_csrf_checks=True)
++        browser.force_login(self.handler)
++        start = self.ticket.version
++        first = datetime(2026, 11, 9, 9, 1, tzinfo=UTC)
++        second = first + timedelta(minutes=5)
++        notes = [('已取出卡纸', first), ('正在检查进纸口', second)]
++
++        for version, (content, occurred_at) in enumerate(notes, start=start):
++            detail = browser.get(self.detail_url)
++            self.assertContains(detail, f'action="{self.url}"')
++            self.assertContains(detail, f'name="version" value="{version}"')
++            self.assertContains(detail, '追加处理进度')
++            with patch('repairs.services.timezone') as clock:
++                clock.now.return_value = occurred_at
++                response = browser.post(self.url, {
++                    'version': version, 'content': content,
++                    'csrfmiddlewaretoken': browser.cookies['csrftoken'].value,
++                    'actor': self.other_handler.pk, 'occurred_at': first.isoformat(),
++                })
++            self.assertRedirects(response, self.detail_url, fetch_redirect_response=False)
++
++        self.ticket.refresh_from_db()
++        self.assertEqual(
++            (self.ticket.status, self.ticket.assignee_id, self.ticket.version, self.ticket.updated_at),
++            (Ticket.Status.IN_PROGRESS, self.handler.pk, start + 2, second),
++        )
++        self.assertEqual(list(self.ticket.events.values_list('action', flat=True)), [
++            TicketEvent.Action.CREATED, TicketEvent.Action.CLAIMED,
++            TicketEvent.Action.PROGRESS, TicketEvent.Action.PROGRESS,
++        ])
++        self.assertEqual(list(self.ticket.events.filter(action=TicketEvent.Action.PROGRESS).values_list(
++            'version', 'actor_id', 'content', 'occurred_at',
++        )), [
++            (start + 1, self.handler.pk, '已取出卡纸', first),
++            (start + 2, self.handler.pk, '正在检查进纸口', second),
++        ])
++
++        self.client.force_login(self.reporter)
++        detail = self.client.get(self.detail_url)
++        self.assertNotContains(detail, f'action="{self.url}"')
++        self.assertContains(detail, '''
++            <section aria-labelledby="latest-progress-heading">
++              <h2 id="latest-progress-heading">最新进度</h2>
++              <p class="event-content">正在检查进纸口</p>
++              <p>记录时间 <time datetime="2026-11-09T17:06:00+0800">2026-11-09 17:06:00</time></p>
++            </section>
++        ''', html=True)
++        history = detail.content.decode().split('<ol>', 1)[1].split('</ol>', 1)[0]
++        self.assertLess(history.index('已取出卡纸'), history.index('正在检查进纸口'))
++        self.assertIn('2026-11-09 17:01:00', history)
++        self.assertIn('2026-11-09 17:06:00', history)
++
++    def test_other_handler_cannot_append_by_forging_the_actor(self):
++        before = self.ticket_snapshot()
++        self.client.force_login(self.other_handler)
++        response = self.client.post(self.url, {
++            'version': self.ticket.version, 'content': '越权更新', 'actor': self.handler.pk,
++        })
++        self.assertEqual(response.status_code, 403)
++        self.assertEqual(self.ticket_snapshot(), before)
++
++    def test_assignee_without_handler_role_cannot_append(self):
++        self.handlers.user_set.remove(self.handler)
++        before = self.ticket_snapshot()
++        self.assertEqual(self.client.post(self.url, {
++            'version': self.ticket.version, 'content': '失去负责人资格后的更新',
++        }).status_code, 403)
++        self.assertEqual(self.ticket_snapshot(), before)
++
++    def test_stale_version_conflicts_and_cannot_append_again(self):
++        data = {'version': self.ticket.version, 'content': '已取出卡纸'}
++        self.assertRedirects(self.client.post(self.url, data), self.detail_url)
++        before = self.ticket_snapshot()
++        response = self.client.post(self.url, {**data, 'content': '旧页面的更新'})
++        self.assertContains(response, '请刷新详情后再试', status_code=409)
++        self.assertEqual(self.ticket_snapshot(), before)
++
++    def test_wrong_status_disables_form_and_rejects_post(self):
++        Ticket.objects.filter(pk=self.ticket.pk).update(status=Ticket.Status.AWAITING_CONFIRMATION)
++        before = self.ticket_snapshot()
++        self.assertNotContains(self.client.get(self.detail_url), f'action="{self.url}"')
++        self.assertEqual(self.client.post(self.url, {
++            'version': self.ticket.version, 'content': '错误状态的更新',
++        }).status_code, 409)
++        self.assertEqual(self.ticket_snapshot(), before)
++
++    def test_invalid_form_and_requests_without_csrf_do_not_write(self):
++        before = self.ticket_snapshot()
++        for data in ({'content': '缺少版本'}, {'version': self.ticket.version, 'content': ' \t'}):
++            with self.subTest(data=data):
++                self.assertEqual(self.client.post(self.url, data).status_code, 400)
++        browser = Client(enforce_csrf_checks=True)
++        browser.force_login(self.handler)
++        self.assertEqual(browser.post(self.url, {
++            'version': self.ticket.version, 'content': '缺少 CSRF 令牌',
++        }).status_code, 403)
++        self.assertEqual(self.ticket_snapshot(), before)
++
++    def test_progress_summary_keeps_event_time_after_a_later_ticket_update(self):
++        self.assertNotContains(self.client.get(self.detail_url), 'id="latest-progress-heading"')
++        progress_at = datetime(2026, 11, 9, 9, 1, tzinfo=UTC)
++        with patch('repairs.services.timezone') as clock:
++            clock.now.return_value = progress_at
++            self.assertRedirects(self.client.post(self.url, {
++                'version': self.ticket.version, 'content': '已取出卡纸',
++            }), self.detail_url)
++            Ticket.objects.filter(pk=self.ticket.pk).update(status=Ticket.Status.AWAITING_CONFIRMATION)
++            clock.now.return_value = progress_at + timedelta(minutes=10)
++            confirm_closed(
++                ticket_id=self.ticket.pk, actor=self.reporter, expected_version=self.ticket.version + 1,
++            )
++
++        self.client.force_login(self.reporter)
++        detail = self.client.get(self.detail_url)
++        self.assertEqual(detail.context['latest_progress'].occurred_at, progress_at)
++        self.assertContains(detail, '记录时间 <time datetime="2026-11-09T17:01:00+0800">')
++        self.assertContains(detail, '<time datetime="2026-11-09T17:11:00+0800">2026-11-09 17:11:00</time>', html=True)
++
++    def test_failed_event_insert_rolls_back_progress_update(self):
++        before = self.ticket_snapshot()
++        with patch('repairs.services.TicketEvent.objects.create', side_effect=IntegrityError('event insert failed')):
++            with self.assertRaises(IntegrityError):
++                self.client.post(self.url, {'version': self.ticket.version, 'content': '已取出卡纸'})
++        self.assertEqual(self.ticket_snapshot(), before)
++
++    def ticket_snapshot(self):
++        ticket = Ticket.objects.values('status', 'assignee_id', 'version', 'updated_at').get(pk=self.ticket.pk)
++        events = list(self.ticket.events.values())
++        return ticket, events
+diff --git a/repairs/views.py b/repairs/views.py
+index e6f4dfb..3446cab 100644
+--- a/repairs/views.py
++++ b/repairs/views.py
+@@ -13,15 +13,16 @@ from django.views.decorators.http import require_http_methods, require_POST, req
+ from accounts.roles import is_handler
+ 
+ from .forms import TicketNoteForm, TicketSubmissionForm, TicketVersionForm
+-from .models import NOTE_LIMIT
++from .models import NOTE_LIMIT, TicketEvent
+ from .queries import ticket_list_page, tickets_reported_by, tickets_visible_to
+ from .services import (
+-    TicketWriteConflict, TicketWriteUnavailable, claim_ticket,
++    TicketWriteConflict, TicketWriteUnavailable, append_progress, claim_ticket,
+     confirm_closed, create_ticket, is_sqlite_lock_error, return_for_repair,
+ )
+ 
+ 
+ TICKET_ACTIONS = {
++    'progress': (TicketNoteForm, append_progress, '已追加处理进度。'),
+     'close': (TicketVersionForm, confirm_closed, '工单已关闭。'),
+     'return': (TicketNoteForm, return_for_repair, '已退回原负责人继续处理。'),
+ }
+@@ -83,9 +84,13 @@ def ticket_detail(request, ticket_id):
+         return render(request, 'repairs/ticket_unavailable.html', status=404)
+     # 工单和历史分别查询，按已读版本截断，避免把随后提交的事件配到旧状态上。
+     events = list(ticket.events.filter(version__lte=ticket.version).select_related('actor'))
++    latest_progress = next(
++        (event for event in reversed(events) if event.action == TicketEvent.Action.PROGRESS),
++        None,
++    )
+     return render(request, 'repairs/ticket_detail.html', {
+         'ticket': ticket, 'is_handler': handler, 'events': events,
+-        'note_limit': NOTE_LIMIT,
++        'latest_progress': latest_progress, 'note_limit': NOTE_LIMIT,
+     })
+ 
+ 

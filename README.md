@@ -61,3 +61,36 @@ uv run --locked python manage.py test
 `uv run --locked python manage.py test` 会验证两条路径、角色权限和旧页面提交。独立的临时 SQLite 文件测试还会验证同轮关闭与退回竞争、事件写入失败回滚和真实写锁超时。
 
 操作遇到版本冲突或数据库暂时不可用时，错误页提供详情入口。已经填好的有效进度、处理结果或退回原因可从页面复制，再按最新工单状态重新提交。单条进度、处理结果和退回原因最多 4000 字符。
+
+## 课程交付物
+
+| 阶段 | 文件 |
+| --- | --- |
+| 分析与规划 | [产品简报](_bmad-output/planning-artifacts/briefs/brief-BMAD-Codex-练习-20261108-2026-11-09/brief.md) · [PRD](_bmad-output/planning-artifacts/prds/prd-BMAD-Codex-练习-20261108-2026-11-09/prd.md) |
+| 方案 | [架构及五条 ADR](_bmad-output/planning-artifacts/architecture/architecture-BMAD-Codex-练习-20261108-2026-11-09/architecture.md) · [三个史诗和十二条故事](_bmad-output/planning-artifacts/epics.md) · [项目上下文](_bmad-output/planning-artifacts/project-context.md) |
+| 实施与验证 | [故事卡目录](_bmad-output/implementation-artifacts/) · [冲刺状态](_bmad-output/implementation-artifacts/sprint-status.yaml) · [正式代码评审](_bmad-output/implementation-artifacts/code-review.md) |
+| 复盘与演示 | [决策日志](decision-log.md) · [终期复盘](retrospective.md) · [实验 A 原始证据](_bmad-output/implementation-artifacts/experiment-a/) · [10 分钟演示](demo/实验室报修跟踪-终期演示.mp4) |
+
+验收抽查可沿两条链路复跑。
+
+- FR-6 追加进度 → ADR-003 版本条件更新、ADR-005 处理历史 → AC-2.3a 至 AC-2.3c → [进度及权限测试](repairs/test_workflow.py)。
+- FR-9 失败退回 → ADR-003、ADR-004、ADR-005 → AC-3.2a 至 AC-3.2c → [退回、复测及旧请求测试](repairs/test_workflow.py)。[文件 SQLite 测试](repairs/test_file_database.py)进一步验证 NFR-1 的并发胜出结果和写入回滚。NFR-2 也可查阅[列表、详情和写入权限测试](repairs/tests.py)。
+
+演示使用真实浏览器操作的分段画面和合成中文旁白。00:00 介绍案例和范围，01:00 开始报修与接单，04:30 展示两条验收路径，06:30 检查越权，07:00 介绍两条 NFR、架构取舍、评审和实验 A。
+
+## 小组分工
+
+组员姓名与实际分工由小组在提交前填写。
+
+| 组员 | 姓名 | 实际负责事项及产物 |
+| --- | --- | --- |
+| 1 |  |  |
+| 2 |  |  |
+| 3 |  |  |
+| 4 |  |  |
+
+## AI 使用声明
+
+小组确认了简报范围、验收失败退回规则和两条验收路径。Codex 使用 BMAD 技能辅助起草规划文档、拆分故事、实现 Django 应用、补充自动化测试、执行代码评审与复盘，并制作演示。人工判断和委托给智能体的判断分开记录。实验 A 的两个隔离会话由 Codex 在同一台主机上发起，具体输入和结果见[终期复盘](retrospective.md)。
+
+本地 Git 的首笔提交保存的是此前已通过评审的实现快照，后续提交记录实际收尾和复盘。更早的冲刺过程可查故事卡和状态文件，逐故事 Git 提交与成员贡献需由实际仓库记录证明。

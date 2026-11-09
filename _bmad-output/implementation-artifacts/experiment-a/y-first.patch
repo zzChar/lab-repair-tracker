@@ -1,0 +1,188 @@
+diff --git a/lab_repair/urls.py b/lab_repair/urls.py
+index fee00ec..8a3f0ab 100644
+--- a/lab_repair/urls.py
++++ b/lab_repair/urls.py
+@@ -14,6 +14,7 @@ urlpatterns = [
+     path('repairs/mine/', my_tickets, name='my-tickets'),
+     path('repairs/<int:ticket_id>/', ticket_detail, name='ticket-detail'),
+     path('repairs/<int:ticket_id>/claim/', claim_repair, name='claim-repair'),
++    path('repairs/<int:ticket_id>/submit/', update_ticket, {'operation': 'submit'}, name='repair-submit'),
+     path('repairs/<int:ticket_id>/close/', update_ticket, {'operation': 'close'}, name='repair-close'),
+     path('repairs/<int:ticket_id>/return/', update_ticket, {'operation': 'return'}, name='repair-return'),
+ ]
+diff --git a/repairs/services.py b/repairs/services.py
+index 91f0e9b..d82f7d4 100644
+--- a/repairs/services.py
++++ b/repairs/services.py
+@@ -74,6 +74,18 @@ def claim_ticket(*, ticket_id, handler, expected_version):
+         )
+ 
+ 
++def submit_for_confirmation(*, ticket_id, actor, expected_version, content):
++    with _ticket_transaction():
++        assigned = tickets_assigned_to(actor).filter(pk=ticket_id)
++        if not is_handler(actor) or not assigned.exists():
++            raise PermissionDenied
++        _change_ticket(
++            assigned.filter(status=Ticket.Status.IN_PROGRESS), ticket_id=ticket_id,
++            expected_version=expected_version, actor=actor, action=TicketEvent.Action.SUBMITTED,
++            status=Ticket.Status.AWAITING_CONFIRMATION, content=content,
++        )
++
++
+ def confirm_closed(*, ticket_id, actor, expected_version):
+     _resolve_confirmation(
+         ticket_id=ticket_id, actor=actor, expected_version=expected_version,
+diff --git a/repairs/templates/repairs/ticket_detail.html b/repairs/templates/repairs/ticket_detail.html
+index 58d667f..7b555ce 100644
+--- a/repairs/templates/repairs/ticket_detail.html
++++ b/repairs/templates/repairs/ticket_detail.html
+@@ -41,6 +41,9 @@
+     <p><a href="{% url 'my-tickets' %}">返回我提交的工单</a></p>
+   {% endif %}
+   {% if is_handler and ticket.assignee_id == user.pk %}
++    {% if ticket.status == ticket.Status.IN_PROGRESS %}
++      {% include "repairs/ticket_action_form.html" with action_name="repair-submit" note_label="处理结果" button_text="提交验收" %}
++    {% endif %}
+     <p><a href="{% url 'handler-assigned' %}">返回我接下的工单</a></p>
+   {% elif is_handler and ticket.status == ticket.Status.PENDING and ticket.assignee_id is None %}
+     <form method="post" action="{% url 'claim-repair' ticket.pk %}">
+diff --git a/repairs/tests.py b/repairs/tests.py
+index a0d2d3d..1f139f7 100644
+--- a/repairs/tests.py
++++ b/repairs/tests.py
+@@ -12,8 +12,8 @@ from django.utils.html import escape
+ 
+ from accounts.roles import HANDLER_GROUP
+ 
+-from .models import Ticket, TicketEvent
+-from .services import create_ticket
++from .models import NOTE_LIMIT, Ticket, TicketEvent
++from .services import claim_ticket, create_ticket
+ 
+ 
+ class SubmitRepairTests(TestCase):
+@@ -538,3 +538,106 @@ class ClaimTicketTests(TestCase):
+             original.status, original.assignee_id, original.version, original.updated_at,
+         ))
+         self.assertEqual(current.events.count(), event_count)
++
++
++class SubmitForConfirmationTests(TestCase):
++    @classmethod
++    def setUpTestData(cls):
++        users = get_user_model().objects
++        cls.reporter = users.create_user(username='confirmation_reporter')
++        cls.handler = users.create_user(username='confirmation_handler')
++        cls.other_handler = users.create_user(username='confirmation_other_handler')
++        group = Group.objects.create(name=HANDLER_GROUP)
++        group.user_set.add(cls.handler, cls.other_handler)
++        cls.ticket = create_ticket(
++            reporter=cls.reporter, device_name='打印机', location='公共区', description='卡纸',
++        )
++        claim_ticket(ticket_id=cls.ticket.pk, handler=cls.handler, expected_version=cls.ticket.version)
++        cls.ticket.refresh_from_db()
++
++    def setUp(self):
++        self.url = reverse('repair-submit', args=[self.ticket.pk])
++        self.detail_url = reverse('ticket-detail', args=[self.ticket.pk])
++        self.payload = {'version': self.ticket.version, 'content': '已清理卡纸。\n试打通过。'}
++
++    def test_assignee_submits_result_and_reporter_can_accept(self):
++        browser = Client(enforce_csrf_checks=True)
++        browser.force_login(self.handler)
++        detail = browser.get(self.detail_url)
++        self.assertContains(detail, f'action="{self.url}"')
++        self.assertContains(detail, '处理结果')
++        self.assertEqual(browser.post(self.url, self.payload).status_code, 403)
++        self.assertRedirects(browser.post(self.url, {
++            **self.payload, 'csrfmiddlewaretoken': browser.cookies['csrftoken'].value,
++        }), self.detail_url)
++
++        current = Ticket.objects.get(pk=self.ticket.pk)
++        self.assertEqual(current.status, Ticket.Status.AWAITING_CONFIRMATION)
++        self.assertEqual(current.assignee_id, self.handler.pk)
++        self.assertEqual(current.version, self.ticket.version + 1)
++        event = current.events.get(action=TicketEvent.Action.SUBMITTED)
++        self.assertEqual((event.actor, event.content, event.version, event.occurred_at), (
++            self.handler, self.payload['content'], current.version, current.updated_at,
++        ))
++        self.assertNotContains(browser.get(self.detail_url), f'action="{self.url}"')
++
++        self.client.force_login(self.reporter)
++        detail = self.client.get(self.detail_url)
++        self.assertContains(detail, '<dd>待确认</dd>', html=True)
++        self.assertContains(detail, self.payload['content'])
++        close_url = reverse('repair-close', args=[current.pk])
++        self.assertContains(detail, f'action="{close_url}"')
++        self.assertRedirects(self.client.post(close_url, {'version': current.version}), self.detail_url)
++        current.refresh_from_db()
++        self.assertEqual(current.status, Ticket.Status.CLOSED)
++
++    def test_only_current_assignee_with_handler_role_can_submit(self):
++        for user in (self.reporter, self.other_handler):
++            with self.subTest(user=user.username):
++                self.client.force_login(user)
++                self.assertEqual(self.client.post(self.url, self.payload).status_code, 403)
++        self.client.force_login(self.reporter)
++        self.assertNotContains(self.client.get(self.detail_url), f'action="{self.url}"')
++        self.handler.groups.clear()
++        self.client.force_login(self.handler)
++        self.assertEqual(self.client.post(self.url, self.payload).status_code, 403)
++        self.assertFalse(self.ticket.events.filter(action=TicketEvent.Action.SUBMITTED).exists())
++
++    def test_invalid_input_and_failed_event_write_leave_ticket_in_progress(self):
++        self.client.force_login(self.handler)
++        self.assertEqual(self.client.get(self.url).status_code, 405)
++        for content in ('', ' \n\t ', '修' * (NOTE_LIMIT + 1)):
++            self.assertEqual(self.client.post(self.url, {**self.payload, 'content': content}).status_code, 400)
++        with patch('repairs.services.TicketEvent.objects.create', side_effect=IntegrityError('event insert failed')):
++            with self.assertRaises(IntegrityError):
++                self.client.post(self.url, self.payload)
++
++        current = Ticket.objects.get(pk=self.ticket.pk)
++        self.assertEqual((current.status, current.version, current.updated_at), (
++            Ticket.Status.IN_PROGRESS, self.ticket.version, self.ticket.updated_at,
++        ))
++        self.assertFalse(current.events.filter(action=TicketEvent.Action.SUBMITTED).exists())
++
++    def test_retry_is_rejected_and_returned_ticket_can_be_resubmitted(self):
++        self.client.force_login(self.handler)
++        self.assertRedirects(self.client.post(self.url, self.payload), self.detail_url)
++        current = Ticket.objects.get(pk=self.ticket.pk)
++        self.assertEqual(self.client.post(self.url, self.payload).status_code, 409)
++        self.assertEqual(self.client.post(self.url, {**self.payload, 'version': current.version}).status_code, 409)
++
++        self.client.force_login(self.reporter)
++        return_url = reverse('repair-return', args=[current.pk])
++        self.assertRedirects(self.client.post(return_url, {
++            'version': current.version, 'content': '仍偶尔卡纸。',
++        }), self.detail_url)
++        current.refresh_from_db()
++        self.assertEqual((current.status, current.assignee_id), (Ticket.Status.IN_PROGRESS, self.handler.pk))
++
++        self.client.force_login(self.handler)
++        self.assertEqual(self.client.post(self.url, self.payload).status_code, 409)
++        self.assertRedirects(self.client.post(self.url, {
++            'version': current.version, 'content': '已更换进纸轮。',
++        }), self.detail_url)
++        self.assertEqual(list(current.events.filter(action=TicketEvent.Action.SUBMITTED).values_list('content', flat=True)), [
++            self.payload['content'], '已更换进纸轮。',
++        ])
+diff --git a/repairs/views.py b/repairs/views.py
+index e6f4dfb..832eac1 100644
+--- a/repairs/views.py
++++ b/repairs/views.py
+@@ -18,10 +18,12 @@ from .queries import ticket_list_page, tickets_reported_by, tickets_visible_to
+ from .services import (
+     TicketWriteConflict, TicketWriteUnavailable, claim_ticket,
+     confirm_closed, create_ticket, is_sqlite_lock_error, return_for_repair,
++    submit_for_confirmation,
+ )
+ 
+ 
+ TICKET_ACTIONS = {
++    'submit': (TicketNoteForm, submit_for_confirmation, '已提交给报修人验收。'),
+     'close': (TicketVersionForm, confirm_closed, '工单已关闭。'),
+     'return': (TicketNoteForm, return_for_repair, '已退回原负责人继续处理。'),
+ }

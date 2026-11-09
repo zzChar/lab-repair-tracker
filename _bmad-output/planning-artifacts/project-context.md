@@ -12,12 +12,12 @@ updated: 2026-11-09
 
 | 项目 | 第一版基线 | 当前证据与落实位置 |
 | --- | --- | --- |
-| 语言 | Python 3.12 系列 | 练习机实测 3.12.10。故事 1.1 记录目标机器使用的补丁版本。 |
-| Web 框架 | Django 5.2 LTS，建议固定为 5.2.19 | 该版本已正式发布，5.2 支持 Python 3.12。故事 1.1 用官方 `startproject` 建立骨架，将实际采用的版本写入依赖声明。 [发布公告](https://www.djangoproject.com/weblog/2026/nov/03/security-releases/) · [兼容版本](https://docs.djangoproject.com/en/5.2/releases/5.2/#python-compatibility) |
+| 语言 | Python 3.12 系列 | 交付机实测 3.12.10，`pyproject.toml` 限定 Python 3.12 系列。 |
+| Web 框架 | Django 5.2 LTS | `pyproject.toml` 与 `uv.lock` 固定为 5.2.19，交付机实测一致。 |
 | 页面与身份 | Django 5.2 模板、表单、会话和用户组 | 服务端渲染的分层单体。成员与负责人使用独立演示账号，服务端用负责人组判断角色。 |
-| 持久化 | Python 自带 `sqlite3`，单机文件数据库 | 练习机实测 SQLite 3.49.1。评审机随 Python 的实际 SQLite 版本在故事 1.1 记录。 [Django SQLite 配置](https://docs.djangoproject.com/en/5.2/ref/databases/#sqlite-notes) |
+| 持久化 | Python 自带 `sqlite3`，单机文件数据库 | 交付机实测 SQLite 3.49.1，写事务采用 `IMMEDIATE`。 |
 
-当前工作区已有规划产物。应用骨架、依赖锁定、账号初始化方式及可复现的启动和测试命令由故事 1.1 建立，并写入 README。
+故事 1.1 已建立应用骨架和依赖锁定，账号初始化、启动及测试命令见[仓库 README](../../README.md)。
 
 ## 实现规则
 
