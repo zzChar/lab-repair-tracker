@@ -1,0 +1,7 @@
+{% extends "accounts/base.html" %}
+{% block title %}接单未完成 · 实验室报修跟踪{% endblock %}
+{% block content %}
+  <h1>接单未完成</h1>
+  <p role="alert">{{ message }}</p>
+  <p><a href="{% url 'handler-home' %}">返回待接单工单</a></p>
+{% endblock %}

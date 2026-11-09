@@ -1,0 +1,16 @@
+{% extends "accounts/base.html" %}
+{% block title %}登录 · 实验室报修跟踪{% endblock %}
+{% block content %}
+  <h1>登录实验室报修跟踪</h1>
+  {% if user.is_authenticated %}
+    <p>已登录为 <strong>{{ user.get_username }}</strong>。</p>
+    <p><a href="{% url 'home' %}">返回首页</a></p>
+  {% else %}
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <input type="hidden" name="next" value="{{ next }}">
+      <button type="submit">登录</button>
+    </form>
+  {% endif %}
+{% endblock %}

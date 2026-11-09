@@ -1,0 +1,64 @@
+{% extends "accounts/base.html" %}
+{% block title %}工单详情 · 实验室报修跟踪{% endblock %}
+{% block content %}
+  <h1>工单 #{{ ticket.pk }}</h1>
+  {% for message in messages %}
+    <p role="status">{{ message }}</p>
+  {% endfor %}
+  <dl class="ticket-detail">
+    <dt>设备名称</dt>
+    <dd>{{ ticket.device_name }}</dd>
+    <dt>位置</dt>
+    <dd>{{ ticket.location }}</dd>
+    <dt>故障描述</dt>
+    <dd>{{ ticket.description }}</dd>
+    <dt>状态</dt>
+    <dd>{{ ticket.get_status_display }}</dd>
+    <dt>跟进人</dt>
+    <dd>{% if ticket.assignee %}{{ ticket.assignee.get_username }}{% else %}尚无跟进人{% endif %}</dd>
+    <dt>最近更新时间</dt>
+    <dd><time datetime="{{ ticket.updated_at|date:'Y-m-d\TH:i:sO' }}">{{ ticket.updated_at|date:"Y-m-d H:i:s" }}</time></dd>
+  </dl>
+  {% if latest_progress %}
+    <section aria-labelledby="latest-progress-heading">
+      <h2 id="latest-progress-heading">最新进度</h2>
+      <p class="event-content">{{ latest_progress.content }}</p>
+      <p>{% include "repairs/event_time.html" with event=latest_progress %}</p>
+    </section>
+  {% endif %}
+  {% if events %}
+    <section aria-labelledby="ticket-history-heading">
+      <h2 id="ticket-history-heading">处理历史</h2>
+      <ol>
+        {% for event in events %}
+          <li>
+            <strong>{{ event.get_action_display }}</strong>
+            {{ event.actor.get_username }} · {% include "repairs/event_time.html" %}
+            {% if event.content %}<p class="event-content">{{ event.content }}</p>{% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+    </section>
+  {% endif %}
+  {% if is_handler and ticket.assignee_id == user.pk and ticket.status == ticket.Status.IN_PROGRESS %}
+    {% include "repairs/ticket_action_form.html" with action_name="repair-progress" note_label="处理进度" button_text="追加进度" %}
+    {% include "repairs/ticket_action_form.html" with action_name="repair-submit-result" note_label="处理结果" button_text="提交验收" %}
+  {% endif %}
+  {% if ticket.reporter_id == user.pk and ticket.status == ticket.Status.AWAITING_CONFIRMATION %}
+    {% include "repairs/ticket_action_form.html" with action_name="repair-close" note_label="" button_text="确认修好并关闭" %}
+    {% include "repairs/ticket_action_form.html" with action_name="repair-return" note_label="验收失败原因" button_text="退回继续处理" %}
+  {% endif %}
+  {% if ticket.reporter_id == user.pk %}
+    <p><a href="{% url 'my-tickets' %}">返回我提交的工单</a></p>
+  {% endif %}
+  {% if is_handler and ticket.assignee_id == user.pk %}
+    <p><a href="{% url 'handler-assigned' %}">返回我接下的工单</a></p>
+  {% elif is_handler and ticket.status == ticket.Status.PENDING and ticket.assignee_id is None %}
+    <form method="post" action="{% url 'claim-repair' ticket.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="version" value="{{ ticket.version }}">
+      <button type="submit">接单</button>
+    </form>
+    <p><a href="{% url 'handler-home' %}">返回待接单工单</a></p>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "accounts/base.html" %}
+{% block content %}
+  <h1>实验室报修跟踪</h1>
+  <p>当前账号 <strong>{{ user.get_username }}</strong></p>
+  <p>当前角色 <strong>{% if is_handler %}负责人{% else %}普通成员{% endif %}</strong></p>
+  {% for message in messages %}
+    <p role="status">{{ message }}</p>
+  {% endfor %}
+  <p><a href="{% url 'submit-repair' %}">提交公共设备报修</a></p>
+  <p><a href="{% url 'my-tickets' %}">我提交的工单</a></p>
+  {% if is_handler %}
+    <p><a href="{% url 'handler-home' %}">打开负责人入口</a></p>
+  {% endif %}
+  <form method="post" action="{% url 'logout' %}">
+    {% csrf_token %}
+    <button type="submit">退出登录</button>
+  </form>
+{% endblock %}

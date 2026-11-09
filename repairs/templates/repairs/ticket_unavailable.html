@@ -1,0 +1,7 @@
+{% extends "accounts/base.html" %}
+{% block title %}工单不可查看 · 实验室报修跟踪{% endblock %}
+{% block content %}
+  <h1>工单不可查看</h1>
+  <p>这条工单不存在或你无权查看。</p>
+  <p><a href="{% url 'my-tickets' %}">返回我提交的工单</a></p>
+{% endblock %}

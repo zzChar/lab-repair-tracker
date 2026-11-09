@@ -1,0 +1,19 @@
+{% extends "accounts/base.html" %}
+{% block title %}工单操作未完成 · 实验室报修跟踪{% endblock %}
+{% block content %}
+  <h1>工单操作未完成</h1>
+  {% if form %}
+    <ul role="alert">
+      {% if form.version.errors %}<li>工单版本无效，请重新打开工单详情。</li>{% endif %}
+      {% if form.content.errors %}<li>{{ form.content.errors }}</li>{% endif %}
+    </ul>
+  {% else %}
+    <p role="alert">{{ message }}</p>
+  {% endif %}
+  {% if draft_content %}
+    <p><label for="action-draft">已填写的内容（可复制）</label>
+      <textarea id="action-draft" rows="4" readonly>{{ draft_content }}</textarea></p>
+  {% endif %}
+  {% if detail_url %}<p><a href="{{ detail_url }}">重新打开工单详情</a></p>{% endif %}
+  <p><a href="{% url 'home' %}">返回首页</a></p>
+{% endblock %}

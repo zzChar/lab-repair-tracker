@@ -1,0 +1,6 @@
+[project]
+name = "lab-repair"
+version = "0.1.0"
+description = "单实验室公共设备报修台账"
+requires-python = ">=3.12,<3.13"
+dependencies = ["Django==5.2.19"]

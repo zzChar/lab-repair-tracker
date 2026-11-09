@@ -1,0 +1,22 @@
+{% extends "accounts/base.html" %}
+{% block title %}负责人入口 · 实验室报修跟踪{% endblock %}
+{% block content %}
+  <h1>负责人入口</h1>
+  <p>当前负责人 <strong>{{ user.get_username }}</strong></p>
+  {% for message in messages %}
+    <p role="status">{{ message }}</p>
+  {% endfor %}
+  <nav aria-label="负责人工单列表">
+    <a href="{% url 'handler-home' %}"{% if not assigned %} aria-current="page"{% endif %}>待接单工单</a>
+    <a href="{% url 'handler-assigned' %}"{% if assigned %} aria-current="page"{% endif %}>我接下的工单</a>
+  </nav>
+  <h2 id="handler-tickets-heading">{% if assigned %}我接下的工单{% else %}待接单工单{% endif %}</h2>
+  {% if tickets %}
+    {% include "repairs/ticket_table.html" with heading_id="handler-tickets-heading" %}
+  {% elif assigned %}
+    <p>你还没有接下工单。</p>
+  {% else %}
+    <p>当前没有待接单工单。</p>
+  {% endif %}
+  <p><a href="{% url 'home' %}">返回首页</a></p>
+{% endblock %}

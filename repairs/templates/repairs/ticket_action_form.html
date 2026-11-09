@@ -1,0 +1,9 @@
+<form method="post" action="{% url action_name ticket.pk %}">
+  {% csrf_token %}
+  <input type="hidden" name="version" value="{{ ticket.version }}">
+  {% if note_label %}
+    <p><label for="{{ action_name }}-note">{{ note_label }}</label>
+      <textarea id="{{ action_name }}-note" name="content" rows="3" maxlength="{{ note_limit }}" required></textarea></p>
+  {% endif %}
+  <p><button type="submit">{{ button_text }}</button></p>
+</form>

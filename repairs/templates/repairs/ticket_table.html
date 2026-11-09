@@ -1,0 +1,31 @@
+<div class="table-scroll" role="region" aria-labelledby="{{ heading_id }}" tabindex="0">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">工单编号</th>
+        <th scope="col">设备名称</th>
+        <th scope="col">状态</th>
+        <th scope="col">跟进人</th>
+        <th scope="col">最近更新时间</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ticket in tickets %}
+        <tr>
+          <th scope="row"><a href="{% url 'ticket-detail' ticket.pk %}">#{{ ticket.pk }}</a></th>
+          <td class="ticket-device">{{ ticket.device_preview|truncatechars:160 }}</td>
+          <td>{{ ticket.get_status_display }}</td>
+          <td>{% if ticket.assignee %}{{ ticket.assignee.get_username }}{% else %}尚无跟进人{% endif %}</td>
+          <td><time datetime="{{ ticket.updated_at|date:'Y-m-d\TH:i:sO' }}">{{ ticket.updated_at|date:"Y-m-d H:i:s" }}</time></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if page.has_other_pages %}
+  <nav aria-label="工单列表分页">
+    {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">上一页</a>{% endif %}
+    <span>第 {{ page.number }} / {{ page.paginator.num_pages }} 页</span>
+    {% if page.has_next %}<a href="?page={{ page.next_page_number }}">下一页</a>{% endif %}
+  </nav>
+{% endif %}

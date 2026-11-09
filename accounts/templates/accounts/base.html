@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}实验室报修跟踪{% endblock %}</title>
+  <style>
+    body { margin: 0; background: #f4f7fa; color: #17293c; font: 1rem/1.6 system-ui, sans-serif; }
+    main { box-sizing: border-box; max-width: 38rem; margin: 2rem auto; padding: 1.5rem; background: white; }
+    h1 { margin-top: 0; line-height: 1.3; }
+    label { display: block; }
+    input, textarea { box-sizing: border-box; max-width: 100%; padding: .45rem; font: inherit; }
+    button { padding: .45rem .8rem; font: inherit; cursor: pointer; }
+    .errorlist { color: #98282b; }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; min-width: 28rem; border-collapse: collapse; }
+    th, td { padding: .45rem; border-bottom: 1px solid #d9e2ec; text-align: left; overflow-wrap: anywhere; }
+    .ticket-device { white-space: pre-wrap; }
+    .ticket-detail dt { font-weight: 600; }
+    .ticket-detail dd { margin: 0 0 .7rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .event-content { white-space: pre-wrap; overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

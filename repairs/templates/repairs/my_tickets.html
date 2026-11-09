@@ -1,0 +1,12 @@
+{% extends "accounts/base.html" %}
+{% block title %}我提交的工单 · 实验室报修跟踪{% endblock %}
+{% block content %}
+  <h1 id="my-tickets-heading">我提交的工单</h1>
+  {% if tickets %}
+    {% include "repairs/ticket_table.html" with heading_id="my-tickets-heading" %}
+  {% else %}
+    <p>你还没有提交过工单。</p>
+    <p><a href="{% url 'submit-repair' %}">提交公共设备报修</a></p>
+  {% endif %}
+  <p><a href="{% url 'home' %}">返回首页</a></p>
+{% endblock %}

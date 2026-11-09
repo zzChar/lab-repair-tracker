@@ -1,0 +1,11 @@
+{% extends "accounts/base.html" %}
+{% block title %}提交公共设备报修 · 实验室报修跟踪{% endblock %}
+{% block content %}
+  <h1>提交公共设备报修</h1>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">提交报修</button>
+  </form>
+  <p><a href="{% url 'home' %}">返回首页</a></p>
+{% endblock %}
