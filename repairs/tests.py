@@ -158,10 +158,44 @@ class SubmitRepairTests(TestCase):
         self.client.force_login(self.other_user)
         self.assertNotContains(self.client.get(reverse('home')), '报修已提交')
 
-    def test_device_name_over_limit_is_rejected_without_writes(self):
+    def test_report_fields_over_limit_are_rejected_without_writes(self):
         self.client.force_login(self.reporter)
-        response = self.client.post(self.url, {**self.report, 'device_name': '长' * 161})
-        self.assertEqual(response.context['form'].errors.as_data()['device_name'][0].code, 'max_length')
+        for field, limit in (('device_name', 160), ('location', 240), ('description', 4000)):
+            with self.subTest(field=field):
+                response = self.client.post(self.url, {**self.report, field: '长' * (limit + 1)})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context['form'].errors.as_data()[field][0].code, 'max_length')
+                self.assert_no_writes()
+
+    def test_report_fields_at_limits_are_saved_in_full(self):
+        self.client.force_login(self.reporter)
+        report = {'device_name': '名' * 160, 'location': '位' * 240, 'description': '故' * 4000}
+        self.assertRedirects(self.client.post(self.url, report), reverse('home'))
+        ticket = Ticket.objects.get()
+        self.assertEqual({field: getattr(ticket, field) for field in report}, report)
+        self.assertEqual(ticket.events.count(), 1)
+
+    def test_submission_id_is_scoped_to_reporter(self):
+        self.client.force_login(self.reporter)
+        token = self.client.get(self.url).context['form']['submission_id'].value()
+        payload = {**self.report, 'submission_id': token}
+        self.assertRedirects(self.client.post(self.url, payload), reverse('home'))
+        first = Ticket.objects.get()
+        self.client.force_login(self.other_user)
+        self.assertRedirects(self.client.post(self.url, payload), reverse('home'))
+        second = Ticket.objects.get(reporter=self.other_user)
+        self.assertNotEqual(first.pk, second.pk)
+        self.assertEqual(first.submission_id, second.submission_id)
+        self.assertEqual(Ticket.objects.count(), 2)
+        self.assertEqual(TicketEvent.objects.count(), 2)
+
+    def test_invalid_submission_id_does_not_write_and_keeps_report(self):
+        self.client.force_login(self.reporter)
+        response = self.client.post(self.url, {**self.report, 'submission_id': 'not-a-uuid'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['form'].errors.as_data()['submission_id'][0].code, 'invalid')
+        for value in self.report.values():
+            self.assertContains(response, value)
         self.assert_no_writes()
 
 
@@ -322,6 +356,14 @@ class TicketDetailTests(TestCase):
 
     def test_anonymous_request_redirects_to_login(self):
         self.assertRedirects(self.client.get(self.url), f"{reverse('login')}?next={self.url}")
+
+    def test_legacy_long_fields_remain_readable_in_full(self):
+        legacy = {'device_name': '名' * 161, 'location': '位' * 241, 'description': '故' * 4001}
+        Ticket.objects.filter(pk=self.ticket.pk).update(**legacy)
+        self.client.force_login(self.reporter)
+        response = self.client.get(self.url)
+        for value in legacy.values():
+            self.assertContains(response, f'<dd>{value}</dd>', html=True)
 
 
 class HandlerQueueTests(TestCase):

@@ -1,0 +1,105 @@
+Creating test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+Found 66 test(s).
+Operations to perform:
+  Synchronize unmigrated apps: accounts, messages, staticfiles
+  Apply all migrations: auth, contenttypes, repairs, sessions
+Synchronizing apps without migrations:
+  Creating tables...
+    Running deferred SQL...
+Running migrations:
+  Applying contenttypes.0001_initial... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying auth.0001_initial... OK
+  Applying auth.0002_alter_permission_name_max_length... OK
+  Applying auth.0003_alter_user_email_max_length... OK
+  Applying auth.0004_alter_user_username_opts... OK
+  Applying auth.0005_alter_user_last_login_null... OK
+  Applying auth.0006_require_contenttypes_0002... OK
+  Applying auth.0007_alter_validators_add_error_messages... OK
+  Applying auth.0008_alter_user_username_max_length... OK
+  Applying auth.0009_alter_user_last_name_max_length... OK
+  Applying auth.0010_alter_group_name_max_length... OK
+  Applying auth.0011_update_proxy_permissions... OK
+  Applying auth.0012_alter_user_first_name_max_length... OK
+  Applying repairs.0001_initial... OK
+  Applying repairs.0002_alter_ticket_status... OK
+  Applying repairs.0003_alter_ticketevent_action... OK
+  Applying repairs.0004_ticketevent_content_alter_ticket_status_and_more... OK
+  Applying repairs.0005_ticket_submission_id_alter_ticket_description_and_more... OK
+  Applying sessions.0001_initial...test_direct_account_switch_rejects_receipt (accounts.test_messages.ReceiptStorageTests.test_direct_account_switch_rejects_receipt) ... ok
+test_expired_session_cannot_read_receipt_on_login_page (accounts.test_messages.ReceiptStorageTests.test_expired_session_cannot_read_receipt_on_login_page) ... ok
+test_invalid_old_cookie_does_not_discard_new_receipt (accounts.test_messages.ReceiptStorageTests.test_invalid_old_cookie_does_not_discard_new_receipt) ... ok
+test_overflow_keeps_newest_hint_without_response_error (accounts.test_messages.ReceiptStorageTests.test_overflow_keeps_newest_hint_without_response_error) ... ok
+test_receipt_needs_no_session_save_and_is_consumed (accounts.test_messages.ReceiptStorageTests.test_receipt_needs_no_session_save_and_is_consumed) ... ok
+test_rotation_discards_loaded_and_queued_old_receipts (accounts.test_messages.ReceiptStorageTests.test_rotation_discards_loaded_and_queued_old_receipts) ... ok
+test_single_oversized_hint_does_not_raise (accounts.test_messages.ReceiptStorageTests.test_single_oversized_hint_does_not_raise) ... ok
+test_storage_does_not_query_or_modify_loaded_login_session (accounts.test_messages.ReceiptStorageTests.test_storage_does_not_query_or_modify_loaded_login_session) ... ok
+test_tampered_cookie_is_rejected (accounts.test_messages.ReceiptStorageTests.test_tampered_cookie_is_rejected) ... ok
+test_two_active_sessions_for_same_account_do_not_share_receipts (accounts.test_messages.ReceiptStorageTests.test_two_active_sessions_for_same_account_do_not_share_receipts) ... ok
+test_unread_cookie_is_rejected_after_account_switch_or_relogin (accounts.test_messages.ReceiptStorageTests.test_unread_cookie_is_rejected_after_account_switch_or_relogin) ... ok
+test_conflicting_username_rolls_back_seed_without_escalating_user (accounts.tests.DemoAccountSeedTests.test_conflicting_username_rolls_back_seed_without_escalating_user) ... ok
+test_seed_rejects_handler_group_with_extra_permissions (accounts.tests.DemoAccountSeedTests.test_seed_rejects_handler_group_with_extra_permissions) ... ok
+test_seed_rejects_unusable_demo_account (accounts.tests.DemoAccountSeedTests.test_seed_rejects_unusable_demo_account) ... ok
+test_seeding_twice_preserves_existing_password_and_roles (accounts.tests.DemoAccountSeedTests.test_seeding_twice_preserves_existing_password_and_roles) ... ok
+test_anonymous_users_are_redirected_to_login (accounts.tests.LoginTests.test_anonymous_users_are_redirected_to_login) ... ok
+test_incorrect_password_does_not_create_authenticated_session (accounts.tests.LoginTests.test_incorrect_password_does_not_create_authenticated_session) ... ok
+test_login_from_handler_link_still_requires_csrf_and_handler_role (accounts.tests.LoginTests.test_login_from_handler_link_still_requires_csrf_and_handler_role) ... ok
+test_real_login_sets_session_and_enforces_handler_permission (accounts.tests.LoginTests.test_real_login_sets_session_and_enforces_handler_permission) ... ok
+test_confirmation_ignores_forged_reporter_and_actor (repairs.test_workflow.RepairWorkflowTests.test_confirmation_ignores_forged_reporter_and_actor) ... ok
+test_conflict_draft_is_escaped_and_has_recovery_link (repairs.test_workflow.RepairWorkflowTests.test_conflict_draft_is_escaped_and_has_recovery_link) ... ok
+test_detail_does_not_mix_new_event_with_an_old_ticket_version (repairs.test_workflow.RepairWorkflowTests.test_detail_does_not_mix_new_event_with_an_old_ticket_version) ... ok
+test_handling_and_return_event_failures_roll_back_all_fields (repairs.test_workflow.RepairWorkflowTests.test_handling_and_return_event_failures_roll_back_all_fields) ... ok
+test_note_length_boundary_for_progress_result_and_return (repairs.test_workflow.RepairWorkflowTests.test_note_length_boundary_for_progress_result_and_return) ... ok
+test_progress_history_and_successful_acceptance (repairs.test_workflow.RepairWorkflowTests.test_progress_history_and_successful_acceptance) ... ok
+test_progress_permission_and_blank_result_keep_ticket_unchanged (repairs.test_workflow.RepairWorkflowTests.test_progress_permission_and_blank_result_keep_ticket_unchanged) ... ok
+test_removed_handler_role_is_checked_again_for_existing_session (repairs.test_workflow.RepairWorkflowTests.test_removed_handler_role_is_checked_again_for_existing_session) ... ok
+test_rendered_forms_submit_all_four_actions_with_csrf (repairs.test_workflow.RepairWorkflowTests.test_rendered_forms_submit_all_four_actions_with_csrf) ... ok
+test_return_retry_and_old_version_rejection (repairs.test_workflow.RepairWorkflowTests.test_return_retry_and_old_version_rejection) ... ok
+test_stale_handling_version_is_rejected_while_status_is_unchanged (repairs.test_workflow.RepairWorkflowTests.test_stale_handling_version_is_rejected_while_status_is_unchanged) ... ok
+test_workflow_actions_reject_missing_csrf_without_writes (repairs.test_workflow.RepairWorkflowTests.test_workflow_actions_reject_missing_csrf_without_writes) ... ok
+test_claim_event_failure_rolls_back_update (repairs.tests.ClaimTicketTests.test_claim_event_failure_rolls_back_update) ... ok
+test_claim_updates_ticket_event_queues_and_reporter_detail (repairs.tests.ClaimTicketTests.test_claim_updates_ticket_event_queues_and_reporter_detail) ... ok
+test_invalid_and_mismatching_versions_cannot_claim_pending_ticket (repairs.tests.ClaimTicketTests.test_invalid_and_mismatching_versions_cannot_claim_pending_ticket) ... ok
+test_old_version_cannot_claim_again_or_change_the_ticket (repairs.tests.ClaimTicketTests.test_old_version_cannot_claim_again_or_change_the_ticket) ... ok
+test_other_user_cannot_claim_and_get_does_not_write (repairs.tests.ClaimTicketTests.test_other_user_cannot_claim_and_get_does_not_write) ... ok
+test_handler_detail_matches_queue_scope (repairs.tests.HandlerQueueTests.test_handler_detail_matches_queue_scope) ... ok
+test_handler_queue_displays_only_the_correct_ticket_and_fields (repairs.tests.HandlerQueueTests.test_handler_queue_displays_only_the_correct_ticket_and_fields) ... ok
+test_handler_who_is_also_reporter_can_return_to_either_list (repairs.tests.HandlerQueueTests.test_handler_who_is_also_reporter_can_return_to_either_list) ... ok
+test_non_handler_cannot_read_handler_queues (repairs.tests.HandlerQueueTests.test_non_handler_cannot_read_handler_queues) ... ok
+test_pending_queue_paginates_and_bounds_preview_of_legacy_names (repairs.tests.HandlerQueueTests.test_pending_queue_paginates_and_bounds_preview_of_legacy_names) ... ok
+test_reporter_keeps_detail_access_after_another_user_is_assigned (repairs.tests.HandlerQueueTests.test_reporter_keeps_detail_access_after_another_user_is_assigned) ... ok
+test_anonymous_request_redirects_to_login (repairs.tests.MyTicketsTests.test_anonymous_request_redirects_to_login) ... ok
+test_empty_list_does_not_show_other_members_tickets (repairs.tests.MyTicketsTests.test_empty_list_does_not_show_other_members_tickets) ... ok
+test_pending_ticket_displays_status_and_local_update_time (repairs.tests.MyTicketsTests.test_pending_ticket_displays_status_and_local_update_time) ... ok
+test_saved_assignee_is_displayed_without_granting_ownership (repairs.tests.MyTicketsTests.test_saved_assignee_is_displayed_without_granting_ownership) ... ok
+test_sorts_by_update_time_then_ticket_id (repairs.tests.MyTicketsTests.test_sorts_by_update_time_then_ticket_id) ... ok
+test_two_members_see_only_the_tickets_they_submitted (repairs.tests.MyTicketsTests.test_two_members_see_only_the_tickets_they_submitted) ... ok
+test_anonymous_get_and_post_require_login (repairs.tests.SubmitRepairTests.test_anonymous_get_and_post_require_login) ... ok
+test_failed_event_insert_rolls_back_ticket (repairs.tests.SubmitRepairTests.test_failed_event_insert_rolls_back_ticket) ... ok
+test_invalid_submission_id_does_not_write_and_keeps_report (repairs.tests.SubmitRepairTests.test_invalid_submission_id_does_not_write_and_keeps_report) ... ok
+test_lock_error_returns_retry_message_and_keeps_form_values (repairs.tests.SubmitRepairTests.test_lock_error_returns_retry_message_and_keeps_form_values) ... ok
+test_missing_and_whitespace_only_fields_do_not_write (repairs.tests.SubmitRepairTests.test_missing_and_whitespace_only_fields_do_not_write) ... ok
+test_nonblank_input_is_saved_without_trimming (repairs.tests.SubmitRepairTests.test_nonblank_input_is_saved_without_trimming) ... ok
+test_post_requires_csrf_token (repairs.tests.SubmitRepairTests.test_post_requires_csrf_token) ... ok
+test_report_fields_at_limits_are_saved_in_full (repairs.tests.SubmitRepairTests.test_report_fields_at_limits_are_saved_in_full) ... ok
+test_report_fields_over_limit_are_rejected_without_writes (repairs.tests.SubmitRepairTests.test_report_fields_over_limit_are_rejected_without_writes) ... ok
+test_same_form_retry_creates_only_one_ticket_and_event (repairs.tests.SubmitRepairTests.test_same_form_retry_creates_only_one_ticket_and_event) ... ok
+test_submission_id_is_scoped_to_reporter (repairs.tests.SubmitRepairTests.test_submission_id_is_scoped_to_reporter) ... ok
+test_success_creates_one_ticket_and_event_using_session_identity (repairs.tests.SubmitRepairTests.test_success_creates_one_ticket_and_event_using_session_identity) ... ok
+test_unread_submission_receipt_is_cleared_when_switching_account (repairs.tests.SubmitRepairTests.test_unread_submission_receipt_is_cleared_when_switching_account) ... ok
+test_anonymous_request_redirects_to_login (repairs.tests.TicketDetailTests.test_anonymous_request_redirects_to_login) ... ok
+test_legacy_long_fields_remain_readable_in_full (repairs.tests.TicketDetailTests.test_legacy_long_fields_remain_readable_in_full) ... ok
+test_other_member_gets_the_same_404_as_an_unknown_id (repairs.tests.TicketDetailTests.test_other_member_gets_the_same_404_as_an_unknown_id) ... Not Found: /repairs/1/
+Not Found: /repairs/1/
+Not Found: /repairs/2/
+ok
+test_reporter_can_open_link_and_view_saved_fields (repairs.tests.TicketDetailTests.test_reporter_can_open_link_and_view_saved_fields) ... ok
+test_concurrent_outcomes_and_failed_writes (repairs.test_file_database.FileDatabaseAcceptanceTests.test_concurrent_outcomes_and_failed_writes) ... ok
+
+----------------------------------------------------------------------
+Ran 66 tests in 14.121s
+
+OK
+Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+ OK
+System check identified no issues (0 silenced).
