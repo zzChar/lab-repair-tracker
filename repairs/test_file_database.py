@@ -18,6 +18,7 @@ from django.db.migrations.executor import MigrationExecutor
 from django.test import Client, SimpleTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import escape
 
 from accounts.roles import HANDLER_GROUP
 
@@ -70,12 +71,77 @@ def verify_file_database():
         _verify_post_commit_feedback(reporter)
         _verify_post_commit_close_feedback(waiting_ticket(), reporter)
         _verify_concurrent_submission_retry(reporter)
+        _verify_locked_write_endpoints(reporter, handler)
         for winner in ('close', 'return'):
             _verify_concurrent_requests(waiting_ticket(), reporter, handler, winner)
         _verify_failed_writes(waiting_ticket(), reporter)
     finally:
         connections.close_all()
     print('close wins; return wins; rollback; locked write')
+
+
+def _verify_locked_write_endpoints(reporter, handler):
+    # Every public write endpoint must handle both transaction locks and locks
+    # encountered earlier while resolving the database-backed login session.
+    draft = '</textarea><script>alert("草稿")</script> & 继续处理'
+    with closing(sqlite3.connect(settings.DATABASES['default']['NAME'])) as locker:
+        def snapshot():
+            return (
+                locker.execute('SELECT * FROM repairs_ticket ORDER BY id').fetchall(),
+                locker.execute('SELECT * FROM repairs_ticketevent ORDER BY id').fetchall(),
+            )
+
+        for action in ('submit', 'claim', 'progress', 'submit-result', 'close', 'return'):
+            actor = reporter if action in ('submit', 'close', 'return') else handler
+            client = Client(enforce_csrf_checks=True, raise_request_exception=False, HTTP_HOST='localhost')
+            client.force_login(actor)
+            if action == 'submit':
+                url = reverse('submit-repair')
+                page = client.get(url)
+                token = re.search(r'name="submission_id" value="([^"]+)"', page.content.decode())
+                assert token is not None
+                data = {
+                    'device_name': '锁冲突打印机', 'location': '公共区', 'description': draft,
+                    'submission_id': token[1],
+                }
+            else:
+                ticket = services.create_ticket(
+                    reporter=reporter, device_name='锁冲突打印机', location='公共区', description='卡纸',
+                )
+                if action != 'claim':
+                    services.claim_ticket(ticket_id=ticket.pk, handler=handler, expected_version=1)
+                if action in ('close', 'return'):
+                    services.submit_result(ticket_id=ticket.pk, actor=handler, expected_version=2, content='请试打')
+                ticket.refresh_from_db()
+                detail_url = reverse('ticket-detail', args=[ticket.pk])
+                assert client.get(detail_url).status_code == 200
+                route = 'claim-repair' if action == 'claim' else f'repair-{action}'
+                url = reverse(route, args=[ticket.pk])
+                data = {'version': ticket.version}
+                if action in ('progress', 'submit-result', 'return'):
+                    data['content'] = draft
+            data['csrfmiddlewaretoken'] = client.cookies['csrftoken'].value
+            before = snapshot()
+
+            for lock in ('BEGIN IMMEDIATE', 'BEGIN EXCLUSIVE'):
+                locker.execute(lock)
+                try:
+                    response = client.post(url, data)
+                    assert response.status_code == 503, (action, lock, response.status_code)
+                    assert 'no-store' in response.headers['Cache-Control']
+                    # Under an exclusive lock identity cannot be resolved yet,
+                    # so only the retry message is available. A normal write
+                    # lock reaches validation and must preserve valid input.
+                    if lock == 'BEGIN IMMEDIATE' and action in ('submit', 'progress', 'submit-result', 'return'):
+                        body = response.content.decode()
+                        assert str(escape(draft)) in body, (action, body)
+                        assert '<script>' not in body
+                        if action != 'submit':
+                            assert f'href="{detail_url}"' in body
+                    assert snapshot() == before, (action, lock)
+                finally:
+                    locker.rollback()
+                assert snapshot() == before, (action, lock)
 
 
 def _verify_post_commit_feedback(reporter):

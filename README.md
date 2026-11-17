@@ -37,6 +37,8 @@ uv run --locked python manage.py check
 uv run --locked python manage.py test
 ```
 
+D-011 至 D-015 的逐项代码与测试对应、补充验证和复跑命令见 [验证记录](_bmad-output/implementation-artifacts/d011-d015-verification.md)。D-011 采用绑定登录会话的签名 Cookie；决策日志保留了此前会话消息方案的修正经过。
+
 1. 在未登录时直接打开 [应用首页](http://127.0.0.1:8000/)，应跳到登录页。
 2. 用普通成员登录，首页显示「普通成员」。直接访问 [负责人入口](http://127.0.0.1:8000/handler/) 应收到 403。
 3. 退出后用负责人登录，首页显示「负责人」，可以打开负责人入口。

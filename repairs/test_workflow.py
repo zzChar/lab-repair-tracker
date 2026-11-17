@@ -205,6 +205,31 @@ class RepairWorkflowTests(TestCase):
                 self.assertContains(response, '旧页面内容', status_code=409)
                 self.assertEqual(self.snapshot(), before)
 
+    def test_note_length_boundary_for_progress_result_and_return(self):
+        for action in ('progress', 'submit-result', 'return'):
+            with self.subTest(action=action):
+                browser = self.reporter_client if action == 'return' else self.handler_client
+                before = self.snapshot()
+                response = self.post(browser, action, content='长' * 4001)
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.context['form'].errors.as_data()['content'][0].code, 'max_length')
+                self.assertEqual(self.snapshot(), before)
+                self.save(browser, action, content='长' * 4000)
+                self.assertEqual(self.ticket.events.latest('version').content, '长' * 4000)
+
+    def test_conflict_draft_is_escaped_and_has_recovery_link(self):
+        old_version = self.ticket.version
+        self.save(self.handler_client, 'progress', content='新进度')
+        before = self.snapshot()
+        draft = '</textarea><script>alert("草稿")</script> & 待补充'
+        response = self.post(self.handler_client, 'progress', version=old_version, content=draft)
+        self.assertContains(response, '&lt;/textarea&gt;&lt;script&gt;', status_code=409)
+        self.assertNotContains(response, '<script>', status_code=409)
+        self.assertContains(response, f'href="{self.detail}"', status_code=409)
+        self.assertEqual(response.context['draft_content'], draft)
+        self.assertIn('no-store', response.headers['Cache-Control'])
+        self.assertEqual(self.snapshot(), before)
+
     def test_workflow_actions_reject_missing_csrf_without_writes(self):
         handler = Client(enforce_csrf_checks=True)
         handler.force_login(self.handler)
