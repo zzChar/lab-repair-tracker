@@ -15,7 +15,7 @@ companions: ['architecture.md']
 
 # 实验室报修跟踪 · 架构约束
 
-以下规则是第一版设计提案。需求来源和候选方案记录见[架构方案与 ADR](architecture.md)。
+以下规则已落实为第一版实现约束，采用记录见决策日志 D-006 至 D-010。课堂人工评审状态由小组另行补证。需求来源和候选方案记录见[架构方案与 ADR](architecture.md)。
 
 ## Design Paradigm
 

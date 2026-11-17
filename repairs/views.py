@@ -13,8 +13,8 @@ from django.views.decorators.http import require_http_methods, require_POST, req
 from accounts.roles import is_handler
 
 from .forms import TicketNoteForm, TicketSubmissionForm, TicketVersionForm
-from .models import NOTE_LIMIT, TicketEvent
-from .queries import ticket_list_page, tickets_reported_by, tickets_visible_to
+from .models import NOTE_LIMIT
+from .queries import ticket_history, ticket_list_page, tickets_reported_by, tickets_visible_to
 from .services import (
     TicketWriteConflict, TicketWriteUnavailable, append_progress, claim_ticket,
     confirm_closed, create_ticket, is_sqlite_lock_error, return_for_repair, submit_result,
@@ -83,9 +83,7 @@ def ticket_detail(request, ticket_id):
     ticket = visible.select_related('assignee').filter(pk=ticket_id).first()
     if ticket is None:
         return render(request, 'repairs/ticket_unavailable.html', status=404)
-    # 工单和历史分别查询，按已读版本截断，避免把随后提交的事件配到旧状态上。
-    events = list(ticket.events.filter(version__lte=ticket.version).select_related('actor'))
-    latest_progress = next((event for event in reversed(events) if event.action == TicketEvent.Action.PROGRESS), None)
+    events, latest_progress = ticket_history(ticket)
     return render(request, 'repairs/ticket_detail.html', {
         'ticket': ticket, 'is_handler': handler, 'events': events, 'latest_progress': latest_progress,
         'note_limit': NOTE_LIMIT,

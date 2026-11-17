@@ -15,7 +15,7 @@ from django.contrib.auth.models import Group
 from django.core.management import call_command
 from django.db import IntegrityError, connections
 from django.db.migrations.executor import MigrationExecutor
-from django.test import Client, SimpleTestCase
+from django.test import Client, SimpleTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -67,6 +67,8 @@ def verify_file_database():
         return ticket
 
     try:
+        _verify_post_commit_feedback(reporter)
+        _verify_post_commit_close_feedback(waiting_ticket(), reporter)
         _verify_concurrent_submission_retry(reporter)
         for winner in ('close', 'return'):
             _verify_concurrent_requests(waiting_ticket(), reporter, handler, winner)
@@ -74,6 +76,77 @@ def verify_file_database():
     finally:
         connections.close_all()
     print('close wins; return wins; rollback; locked write')
+
+
+def _verify_post_commit_feedback(reporter):
+    # Acquire a real competing write lock only after the business transaction
+    # commits. The old SessionStorage then fails while persisting its receipt.
+    for storage, expected, lock in (
+        ('django.contrib.messages.storage.session.SessionStorage', (400, 500), 'BEGIN IMMEDIATE'),
+        ('django.contrib.messages.storage.session.SessionStorage', (400, 500), 'BEGIN EXCLUSIVE'),
+        (settings.MESSAGE_STORAGE, (302,), 'BEGIN IMMEDIATE'),
+        (settings.MESSAGE_STORAGE, (302,), 'BEGIN EXCLUSIVE'),
+    ):
+        client = Client(raise_request_exception=False, HTTP_HOST='localhost')
+        client.force_login(reporter)
+        create_ticket = services.create_ticket
+        with closing(sqlite3.connect(settings.DATABASES['default']['NAME'])) as locker:
+            committed = []
+
+            def commit_then_lock(**kwargs):
+                ticket = create_ticket(**kwargs)
+                committed.append(ticket.pk)
+                locker.execute(lock)
+                return ticket
+
+            try:
+                with override_settings(MESSAGE_STORAGE=storage), patch(
+                    'repairs.views.create_ticket', side_effect=commit_then_lock,
+                ):
+                    response = client.post(reverse('submit-repair'), {
+                        'device_name': 'Post-commit printer', 'location': 'Lab', 'description': 'Jam',
+                    })
+                assert len(committed) == 1
+                assert locker.execute(
+                    'SELECT COUNT(*) FROM repairs_ticketevent WHERE ticket_id = ? AND action = ?',
+                    (committed[0], TicketEvent.Action.CREATED),
+                ).fetchone() == (1,)
+                assert response.status_code in expected, (storage, lock, response.status_code, expected)
+            finally:
+                locker.rollback()
+        if expected == (302,):
+            assert response.url == reverse('home')
+            receipt = client.get(response.url)
+            assert '报修已提交' in receipt.content.decode()
+            assert '报修已提交' not in client.get(response.url).content.decode()
+
+
+def _verify_post_commit_close_feedback(ticket, reporter):
+    from .views import TICKET_ACTIONS
+
+    client, url, data = _signed_request(ticket, reporter, 'close')
+    form, close, message = TICKET_ACTIONS['close']
+    with closing(sqlite3.connect(settings.DATABASES['default']['NAME'])) as locker:
+        def close_then_lock(**kwargs):
+            close(**kwargs)
+            locker.execute('BEGIN EXCLUSIVE')
+
+        try:
+            with patch.dict(TICKET_ACTIONS, {'close': (form, close_then_lock, message)}):
+                response = client.post(url, data)
+            assert response.status_code == 302
+            assert response.url == reverse('ticket-detail', args=[ticket.pk])
+            assert locker.execute(
+                'SELECT status, version FROM repairs_ticket WHERE id = ?', (ticket.pk,),
+            ).fetchone() == (Ticket.Status.CLOSED, ticket.version + 1)
+            assert locker.execute(
+                'SELECT COUNT(*) FROM repairs_ticketevent WHERE ticket_id = ? AND action = ?',
+                (ticket.pk, TicketEvent.Action.CLOSED),
+            ).fetchone() == (1,)
+        finally:
+            locker.rollback()
+    assert '工单已关闭。' in client.get(response.url).content.decode()
+    assert '工单已关闭。' not in client.get(response.url).content.decode()
 
 
 def _verify_concurrent_submission_retry(reporter):

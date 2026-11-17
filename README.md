@@ -30,6 +30,8 @@ uv run --locked python -c "import sys, sqlite3, django; print(sys.version.split(
 
 ## 验证
 
+成功提示使用绑定当前登录会话的签名 Cookie，不再为提示额外写入数据库会话。退出或切换账号后，旧提示不会显示给新会话。提示按 Cookie 容量保留最近记录；工单详情中的事件历史是持久记录。
+
 ```powershell
 uv run --locked python manage.py check
 uv run --locked python manage.py test

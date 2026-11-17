@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.db import IntegrityError
 from django.test import Client, TestCase
 from django.urls import reverse
 
@@ -193,3 +194,60 @@ class RepairWorkflowTests(TestCase):
         current = self.reporter_client.get(self.detail)
         self.assertContains(current, '<dd>待确认</dd>', html=True)
         self.assertContains(current, '新验收事件')
+
+    def test_stale_handling_version_is_rejected_while_status_is_unchanged(self):
+        old_version = self.ticket.version
+        self.save(self.handler_client, 'progress', content='新的处理进度')
+        before = self.snapshot()
+        for action in ('progress', 'submit-result'):
+            with self.subTest(action=action):
+                response = self.post(self.handler_client, action, version=old_version, content='旧页面内容')
+                self.assertContains(response, '旧页面内容', status_code=409)
+                self.assertEqual(self.snapshot(), before)
+
+    def test_workflow_actions_reject_missing_csrf_without_writes(self):
+        handler = Client(enforce_csrf_checks=True)
+        handler.force_login(self.handler)
+        reporter = Client(enforce_csrf_checks=True)
+        reporter.force_login(self.reporter)
+        for action in ('progress', 'submit-result', 'close', 'return'):
+            with self.subTest(action=action):
+                if action == 'close':
+                    self.save(self.handler_client, 'submit-result', content='请试打')
+                before = self.snapshot()
+                browser = handler if action in ('progress', 'submit-result') else reporter
+                self.assertEqual(self.post(browser, action, content='没有 CSRF 令牌').status_code, 403)
+                self.assertEqual(self.snapshot(), before)
+
+    def test_handling_and_return_event_failures_roll_back_all_fields(self):
+        for action in ('progress', 'submit-result', 'return'):
+            with self.subTest(action=action):
+                if action == 'return':
+                    self.save(self.handler_client, 'submit-result', content='请试打')
+                before = self.snapshot()
+                browser = self.reporter_client if action == 'return' else self.handler_client
+                with patch('repairs.services.TicketEvent.objects.create', side_effect=IntegrityError('事件写入失败')):
+                    with self.assertRaises(IntegrityError):
+                        self.post(browser, action, content='不能留下部分写入')
+                self.assertEqual(self.snapshot(), before)
+
+    def test_removed_handler_role_is_checked_again_for_existing_session(self):
+        self.handler.groups.clear()
+        before = self.snapshot()
+        self.assertEqual(self.handler_client.get(self.detail).status_code, 404)
+        self.assertEqual(self.handler_client.get(reverse('handler-assigned')).status_code, 403)
+        for action in ('progress', 'submit-result'):
+            self.assertEqual(self.post(self.handler_client, action, content='已撤销角色').status_code, 403)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_confirmation_ignores_forged_reporter_and_actor(self):
+        self.save(self.handler_client, 'submit-result', content='请试打')
+        before = self.snapshot()
+        for action in ('close', 'return'):
+            with self.subTest(action=action):
+                response = self.post(
+                    self.handler_client, action, content='伪造报修人',
+                    reporter=self.reporter.pk, actor=self.reporter.pk,
+                )
+                self.assertEqual(response.status_code, 403)
+                self.assertEqual(self.snapshot(), before)
